@@ -1,0 +1,89 @@
+services:
+  db_recipes:
+    restart: always
+    container_name: ${POSTGRES_HOST}
+    image: postgres:16-alpine
+    volumes:
+      - ${MOUNT_ROOT}/tandoor/postgresql:/var/lib/postgresql/data
+    networks:
+      frontend:
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DB_ENGINE: ${DB_ENGINE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  web_recipes:
+    restart: always
+    image: vabene1111/recipes
+    volumes:
+      - staticfiles:/opt/recipes/staticfiles
+      - nginx_config:/opt/recipes/nginx/conf.d
+      - ${MOUNT_ROOT}/tandoor/mediafiles:/opt/recipes/mediafiles
+    depends_on:
+      - db_recipes
+    networks:
+      frontend:
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DB_ENGINE: ${DB_ENGINE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      EMAIL_HOST: ${MAIL_HOST}
+      EMAIL_PORT: 465
+      EMAIL_HOST_USER: ${MAIL_USER}
+      EMAIL_HOST_PASSWORD: ${MAIL_PASSWORD}
+      EMAIL_USE_SSL: 1
+      DEFAULT_FROM_EMAIL: ${MAIL_FROM}
+      ENABLE_SIGNUP: 0
+      TZ: ${TZ}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  nginx_recipes:
+    image: nginx:mainline-alpine
+    restart: always
+    volumes:
+      - nginx_config:/etc/nginx/conf.d:ro
+      - staticfiles:/static:ro
+      - ${MOUNT_ROOT}/tandoor/mediafiles:/media:ro
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.recipes.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.recipes.entrypoints=websecure"
+      - "traefik.http.routers.recipes.tls=true"
+    depends_on:
+      - web_recipes
+    networks:
+      frontend:
+    ports:
+     - 28919:80
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DB_ENGINE: ${DB_ENGINE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+
+volumes:
+  nginx_config:
+  staticfiles:
+
+networks:
+  backend:
+    external: true
+  frontend:
+    external: true
